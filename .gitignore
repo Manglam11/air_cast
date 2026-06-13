@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & artefacts (reproducible from code — never commit)
+data/raw/
+data/processed/
+models/*.joblib
+models/*.pkl
+reports/*.png
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets
+.env
+*.secret
