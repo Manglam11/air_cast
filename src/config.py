@@ -77,3 +77,17 @@ STATE_COL: str = "state"
 META_FILENAME_COL: str = "file_name"
 META_CITY_COL: str = "city"
 META_STATE_COL: str = "state"
+
+# ----- Daily aggregation rules (hourly -> daily, CPCB-aware) -----
+# Pollutants summarised by the day's WORST rolling 8-hour average (CPCB rule).
+AQI_MAX8H_POLLUTANTS: list[str] = ["co", "o3"]
+
+# Everything else uses the day's 24-hour MEAN. Derived from POLLUTANT_COLS so
+# there is one source of truth (same pattern as AQI_CATEGORIES from AQI_BANDS).
+AQI_MEAN_POLLUTANTS: list[str] = [
+    p for p in POLLUTANT_COLS if p not in AQI_MAX8H_POLLUTANTS
+]
+
+ROLLING_WINDOW_HOURS: int = 8   # window size for CO / O3
+MIN_VALID_HOURS: int = 16       # a 24-hr pollutant needs >=16 valid hours to trust
+MIN_HOURS_8H_WINDOW: int = 6   # an 8-hour average needs >= 6 valid hours
