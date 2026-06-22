@@ -160,3 +160,6 @@ AQI_BREAKPOINTS = {
 AQI_MIN_POLLUTANTS = 3
 # At least one of these must be present for a valid AQI.
 AQI_REQUIRED_ANY = ("pm25", "pm10")
+
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+DAILY_AQI_PATH = PROCESSED_DIR / "daily_aqi.parquet"
