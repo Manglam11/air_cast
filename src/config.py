@@ -91,3 +91,72 @@ AQI_MEAN_POLLUTANTS: list[str] = [
 ROLLING_WINDOW_HOURS: int = 8   # window size for CO / O3
 MIN_VALID_HOURS: int = 16       # a 24-hr pollutant needs >=16 valid hours to trust
 MIN_HOURS_8H_WINDOW: int = 6   # an 8-hour average needs >= 6 valid hours
+
+# CPCB AQI sub-index breakpoints.
+# Each band is (conc_low, conc_high, aqi_low, aqi_high).
+# Units: ug/m3 for all pollutants except co (mg/m3).
+# Top band upper edges are conventional (CPCB leaves them open-ended);
+# AQICalculator clamps any resulting sub-index at 500.
+AQI_BREAKPOINTS = {
+    "pm25": [
+        (0, 30, 0, 50),
+        (31, 60, 51, 100),
+        (61, 90, 101, 200),
+        (91, 120, 201, 300),
+        (121, 250, 301, 400),
+        (251, 380, 401, 500),
+    ],
+    "pm10": [
+        (0, 50, 0, 50),
+        (51, 100, 51, 100),
+        (101, 250, 101, 200),
+        (251, 350, 201, 300),
+        (351, 430, 301, 400),
+        (431, 510, 401, 500),
+    ],
+    "no2": [
+        (0, 40, 0, 50),
+        (41, 80, 51, 100),
+        (81, 180, 101, 200),
+        (181, 280, 201, 300),
+        (281, 400, 301, 400),
+        (401, 520, 401, 500),
+    ],
+    "o3": [
+        (0, 50, 0, 50),
+        (51, 100, 51, 100),
+        (101, 168, 101, 200),
+        (169, 208, 201, 300),
+        (209, 748, 301, 400),
+        (749, 940, 401, 500),
+    ],
+    "so2": [
+        (0, 40, 0, 50),
+        (41, 80, 51, 100),
+        (81, 380, 101, 200),
+        (381, 800, 201, 300),
+        (801, 1600, 301, 400),
+        (1601, 2620, 401, 500),
+    ],
+    "nh3": [
+        (0, 200, 0, 50),
+        (201, 400, 51, 100),
+        (401, 800, 101, 200),
+        (801, 1200, 201, 300),
+        (1201, 1800, 301, 400),
+        (1801, 2400, 401, 500),
+    ],
+    "co": [
+        (0, 1.0, 0, 50),
+        (1.1, 2.0, 51, 100),
+        (2.1, 10, 101, 200),
+        (10.1, 17, 201, 300),
+        (17.1, 34, 301, 400),
+        (34.1, 50, 401, 500),
+    ],
+}
+
+# Minimum pollutants required for a valid CPCB AQI on a given day.
+AQI_MIN_POLLUTANTS = 3
+# At least one of these must be present for a valid AQI.
+AQI_REQUIRED_ANY = ("pm25", "pm10")
