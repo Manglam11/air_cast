@@ -163,3 +163,19 @@ AQI_REQUIRED_ANY = ("pm25", "pm10")
 
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 DAILY_AQI_PATH = PROCESSED_DIR / "daily_aqi.parquet"
+
+# ----- Cleaning (Session 3) -----
+VOC_COLS: list[str] = ["benzene", "toluene", "xylene"]   # sparse — dropped before modeling
+
+# The 9 pollutants kept for modeling, derived so there's one source of truth
+# (same pattern as AQI_CATEGORIES from AQI_BANDS).
+MODEL_POLLUTANT_COLS: list[str] = [p for p in POLLUTANT_COLS if p not in VOC_COLS]
+
+MODELING_START_YEAR: int = 2018   # coverage stabilises here (EDA bucket 4)
+MIN_CITY_DAYS: int = 730          # two seasonal cycles of LABELLED days
+FILL_LIMIT: int = 3               # bridge gaps up to 3 days; longer stays NaN
+
+CITY_ID_COL: str = "city_id"      # canonical identity = "city, state"
+IDENTITY_COLS: list[str] = [CITY_ID_COL, CITY_COL, STATE_COL]
+
+CLEAN_CITY_DAY_PATH = PROCESSED_DIR / "clean_city_day.parquet"
