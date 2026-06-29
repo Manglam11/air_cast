@@ -179,3 +179,53 @@ CITY_ID_COL: str = "city_id"      # canonical identity = "city, state"
 IDENTITY_COLS: list[str] = [CITY_ID_COL, CITY_COL, STATE_COL]
 
 CLEAN_CITY_DAY_PATH = PROCESSED_DIR / "clean_city_day.parquet"
+
+# ----- Feature engineering (Session 4) -----
+LAG_DAYS: list[int] = [1, 2, 3, 7]
+ROLL_WINDOWS: list[int] = [3, 7]
+ROLL_STATS: tuple[str, ...] = ("mean", "std")
+
+# India-appropriate season buckets, mapped from month.
+MONTH_TO_SEASON: dict[int, str] = {
+    12: "Winter",       1: "Winter",        2: "Winter",
+     3: "Summer",       4: "Summer",        5: "Summer",
+     6: "Monsoon",      7: "Monsoon",       8: "Monsoon",      9: "Monsoon",
+    10: "Post-Monsoon", 11: "Post-Monsoon",
+}
+
+# Created feature / target column names.
+SEASON_COL: str        = "season"
+MONTH_COL: str         = "month"
+DAY_OF_YEAR_COL: str   = "day_of_year"
+DAY_OF_WEEK_COL: str   = "day_of_week"
+IS_WEEKEND_COL: str    = "is_weekend"
+TARGET_AQI_COL: str    = "target_aqi"      # day T+1 AQI value
+TARGET_BUCKET_COL: str = "target_bucket"   # day T+1 AQI category
+
+# Derived feature-name lists — single source of truth for the model sessions.
+LAG_COLS: list[str] = [f"aqi_lag_{k}" for k in LAG_DAYS]
+ROLL_COLS: list[str] = [
+    f"aqi_roll_{stat}_{w}" for w in ROLL_WINDOWS for stat in ROLL_STATS
+]
+CALENDAR_NUMERIC_COLS: list[str] = [
+    MONTH_COL, DAY_OF_YEAR_COL, DAY_OF_WEEK_COL, IS_WEEKEND_COL,
+]
+
+# The model's X: today's pollutant levels + lags + rollings + calendar.
+FEATURE_COLS: list[str] = (
+    MODEL_POLLUTANT_COLS + LAG_COLS + ROLL_COLS + CALENDAR_NUMERIC_COLS
+)
+
+# Structural columns: NaNs here are unfixable -> their rows are dropped.
+# Pollutant NaNs are deliberately excluded (imputed later in the Pipeline).
+STRUCTURAL_COLS: list[str] = (
+    LAG_COLS + ROLL_COLS + [TARGET_AQI_COL, TARGET_BUCKET_COL]
+)
+
+# Metadata: kept for the app + chronological splitting, never fed as features.
+META_COLS: list[str] = [
+    CITY_ID_COL, CITY_COL, STATE_COL, DATE_COL,
+    AQI_COL, AQI_BUCKET_COL, SEASON_COL,
+]
+
+FEATURES_PATH = PROCESSED_DIR / "features.parquet"
