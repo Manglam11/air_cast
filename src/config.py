@@ -229,3 +229,14 @@ META_COLS: list[str] = [
 ]
 
 FEATURES_PATH = PROCESSED_DIR / "features.parquet"
+
+# ----- Modeling: split, CV, preprocessing (Session 5) -----
+TEST_CUTOFF: str = "2022-04-01"    # chronological hold-out wall (ISO date)
+N_CV_SPLITS: int = 5               # TimeSeriesSplit expanding-window folds
+IMPUTER_STRATEGY: str = "median"   # robust to pollutant spike days
+
+# The model's feature contract: numeric features + the one categorical (season).
+# season lives in META_COLS but is pulled in HERE as the sole categorical feature.
+MODEL_NUMERIC_FEATURES: list[str] = FEATURE_COLS
+MODEL_CATEGORICAL_FEATURES: list[str] = [SEASON_COL]
+MODEL_FEATURES: list[str] = MODEL_NUMERIC_FEATURES + MODEL_CATEGORICAL_FEATURES
