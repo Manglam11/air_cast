@@ -240,3 +240,12 @@ IMPUTER_STRATEGY: str = "median"   # robust to pollutant spike days
 MODEL_NUMERIC_FEATURES: list[str] = FEATURE_COLS
 MODEL_CATEGORICAL_FEATURES: list[str] = [SEASON_COL]
 MODEL_FEATURES: list[str] = MODEL_NUMERIC_FEATURES + MODEL_CATEGORICAL_FEATURES
+
+# ----- Regression bake-off scoring (Session 6) -----
+# sklearn reports error metrics negated (higher = better); the trainer's
+# run_bakeoff flips the neg_ ones back so the leaderboard reads in natural units.
+REGRESSION_SCORING: dict[str, str] = {
+    "mae":  "neg_mean_absolute_error",
+    "rmse": "neg_root_mean_squared_error",
+    "r2":   "r2",
+}
