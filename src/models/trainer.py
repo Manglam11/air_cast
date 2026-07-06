@@ -1,28 +1,34 @@
-"""ModelTrainer: the leakage-safe preprocessing and validation machinery.
+"""ModelTrainer: the leakage-safe preprocessing, validation, and bake-off machinery.
 
-Provides the shared scaffold the regression and classification bake-offs
-(Sessions 6-7) plug every model into: a chronological train/test split, a
-ColumnTransformer that median-imputes and scales the numeric features and
-one-hot-encodes season, a TimeSeriesSplit cross-validator, and a factory that
-wraps any estimator in a Pipeline so preprocessing is fit on training folds only.
-The model roster and bake-off loop arrive in Session 6; this module ships the
-proven, model-agnostic parts.
+Provides the shared scaffold the regression and classification bake-offs plug
+every model into: a chronological train/test split, a ColumnTransformer that
+median-imputes and scales the numeric features and one-hot-encodes season, a
+TimeSeriesSplit cross-validator, a factory that wraps any estimator in a Pipeline
+so preprocessing is fit on training folds only, and the cross-validated bake-off
+loop that ranks a roster of models. The regression roster is defined here;
+Session 7 adds the classification roster alongside it.
 """
 from __future__ import annotations
 
 import pandas as pd
+from lightgbm import LGBMRegressor
 from sklearn.base import BaseEstimator
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
+from sklearn.model_selection import TimeSeriesSplit, cross_validate
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 from src import config
 
 
 class ModelTrainer:
-    """Build the leakage-safe split, preprocessor, and CV for the bake-offs.
+    """Build the leakage-safe split, preprocessor, CV, and bake-off for the roster.
 
     Preprocessing is assembled fresh per model and only ever fit inside a
     Pipeline on training data, so validation and test statistics never leak into
@@ -118,14 +124,79 @@ class ModelTrainer:
         """
         return Pipeline([("prep", self.build_preprocessor()), ("model", model)])
 
-    def run_bakeoff(self) -> None:
-        """Run the model roster under cross-validation (Session 6).
+    def regression_roster(self) -> list[tuple[str, BaseEstimator]]:
+        """Return the 9-model regression roster for the bake-off.
 
-        Placeholder: the regression and classification rosters and the CV-scoring
-        loop are crystallized here once Session 6 proves them in the notebook.
-        Kept as an explicit stub so the skeleton's intent is visible in the code.
+        Nine estimators across four families — linear, distance, tree, and
+        boosting — so the bake-off compares fundamentally different ways of
+        reading the features. Only the stochastic models (trees and boosting)
+        take a random_state; the linear models and KNN are deterministic. SVR is
+        deliberately omitted: its RBF kernel scales poorly on this many rows.
 
-        Raises:
-            NotImplementedError: Always, until Session 6.
+        Returns:
+            ``(name, estimator)`` pairs, each ready to wrap in the pipeline.
         """
-        raise NotImplementedError("Model roster is added in Session 6.")
+        return [
+            ("LinearRegression", LinearRegression()),
+            ("Ridge",            Ridge()),
+            ("Lasso",            Lasso()),
+            ("ElasticNet",       ElasticNet()),
+            ("KNN",              KNeighborsRegressor(n_jobs=-1)),
+            ("DecisionTree",     DecisionTreeRegressor(random_state=config.RANDOM_STATE)),
+            ("RandomForest",     RandomForestRegressor(random_state=config.RANDOM_STATE, n_jobs=-1)),
+            ("XGBoost",          XGBRegressor(random_state=config.RANDOM_STATE, n_jobs=-1)),
+            ("LightGBM",         LGBMRegressor(random_state=config.RANDOM_STATE, n_jobs=-1, verbose=-1)),
+        ]
+
+    def run_bakeoff(
+        self,
+        roster: list[tuple[str, BaseEstimator]],
+        X: pd.DataFrame,
+        y: pd.Series,
+        scoring: dict[str, str],
+    ) -> pd.DataFrame:
+        """Cross-validate every model in the roster and rank them.
+
+        Each model is wrapped in the leakage-safe pipeline and scored with the
+        trainer's TimeSeriesSplit, so preprocessing is re-fit per fold and the
+        comparison is time-aware. sklearn reports error metrics negated (higher
+        is better); those are flipped back so the leaderboard reads in natural
+        units. The leaderboard is sorted by the first metric — ascending when it
+        is an error metric, descending otherwise.
+
+        Args:
+            roster: ``(name, estimator)`` pairs to compare.
+            X: Feature frame (raw columns; the pipeline preprocesses them).
+            y: The target aligned to ``X``.
+            scoring: Mapping of ``metric_name -> sklearn scorer string``.
+
+        Returns:
+            One row per model: a ``model`` column plus a ``cv_<metric>`` column
+            for each metric, sorted best first.
+        """
+        cv = self.get_cv()
+        rows = []
+        for name, model in roster:
+            pipe = self.make_pipeline(model)
+            result = cross_validate(
+                pipe, X, y,
+                cv=cv,
+                scoring=scoring,
+                n_jobs=1,             # models parallelize internally; avoid nesting
+                error_score="raise",  # fail loudly, never silently score NaN
+            )
+            row = {"model": name}
+            for metric, scorer in scoring.items():
+                mean_score = result[f"test_{metric}"].mean()
+                if scorer.startswith("neg_"):   # flip sklearn's negated errors back
+                    mean_score = -mean_score
+                row[f"cv_{metric}"] = mean_score
+            rows.append(row)
+
+        first_metric = next(iter(scoring))
+        best_is_low = scoring[first_metric].startswith("neg_")   # errors: lower wins
+        return (
+            pd.DataFrame(rows)
+            .sort_values(f"cv_{first_metric}", ascending=best_is_low)
+            .reset_index(drop=True)
+        )
