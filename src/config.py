@@ -249,3 +249,16 @@ REGRESSION_SCORING: dict[str, str] = {
     "rmse": "neg_root_mean_squared_error",
     "r2":   "r2",
 }
+
+# ----- Classification bake-off scoring (Session 7) -----
+# weighted_f1 leads (sorts the leaderboard); macro_f1 and the custom Severe-recall
+# scorer ride along. Severe recall is the metric that matters for public health:
+# of truly-Severe days, the fraction the model catches. Imported from trainer so
+# the scorer's definition lives beside the bake-off machinery it feeds.
+from src.models.trainer import severe_recall_scorer
+
+CLASSIFICATION_SCORING: dict[str, object] = {
+    "weighted_f1":   "f1_weighted",
+    "macro_f1":      "f1_macro",
+    "severe_recall": severe_recall_scorer,
+}
