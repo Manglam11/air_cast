@@ -1,16 +1,13 @@
 """AirCast Streamlit app: next-day AQI forecast by city.
 
-Bucket 1 — skeleton: page setup, cached Predictor load, city/date selectors.
-Forecast display and charts land in later buckets.
+Renders a sidebar with city and base-date selectors and displays the next-day
+AQI value, category, and health advisory for the chosen city.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# streamlit run adds src/app/ to sys.path, not the project root, so `src`
-# isn't importable by default. Put the project root (two levels up) on the
-# path before any src import so `from src import ...` resolves.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -21,6 +18,17 @@ import streamlit as st
 from src import config
 from src.models.predictor import Predictor
 
+
+# Display-only: severity color per AQI category, matching CPCB's convention.
+# App-layer presentation, deliberately kept out of config (which is data/model truth).
+CATEGORY_COLORS: dict[str, str] = {
+    "Good":         "#4caf50",
+    "Satisfactory": "#8bc34a",
+    "Moderate":     "#ffb300",
+    "Poor":         "#fb8c00",
+    "Very Poor":    "#e53935",
+    "Severe":       "#b71c1c",
+}
 
 @st.cache_resource
 def load_predictor() -> Predictor:
@@ -38,6 +46,24 @@ def get_date_range(predictor: Predictor, city_id: str) -> tuple[pd.Timestamp, pd
     city_rows = predictor.features.loc[predictor.features[config.CITY_ID_COL] == city_id]
     return city_rows[config.DATE_COL].min(), city_rows[config.DATE_COL].max()
 
+def render_forecast(result: dict) -> None:
+    """Display a forecast result as a colored metric card with advisory.
+
+    Args:
+        result: Output of ``Predictor.predict`` — keys ``aqi``, ``category``,
+            ``advisory``, and ``forecast_date``.
+    """
+    color = CATEGORY_COLORS[result["category"]]
+    st.markdown(f"### Forecast for {result['forecast_date']}")
+    left, right = st.columns([1, 2])
+    left.metric("Predicted AQI", result["aqi"])
+    right.markdown(
+        f"<div style='padding:0.75rem 1rem;border-radius:0.5rem;"
+        f"background:{color};color:white;font-weight:600;font-size:1.1rem;'>"
+        f"{result['category']}</div>",
+        unsafe_allow_html=True,
+    )
+    st.write(result["advisory"])
 
 def main() -> None:
     """Render the AirCast app: sidebar selectors + a placeholder body for now."""
@@ -60,12 +86,8 @@ def main() -> None:
         max_value=max_date.date(),
     )
 
-    st.write(f"City: **{city_id}**")
-    st.write(
-        f"Base date: **{selected_date}** → forecasting "
-        f"**{selected_date + pd.Timedelta(days=1)}**"
-    )
-    st.info("Forecast card lands in Bucket 2.")
+    result = predictor.predict(city_id, selected_date)
+    render_forecast(result)
 
 
 if __name__ == "__main__":
