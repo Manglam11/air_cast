@@ -8,10 +8,14 @@ venv/
 .ipynb_checkpoints/
 
 # Data & artefacts (reproducible from code — never commit)
+# Raw data and bulky processed files stay out of git
 data/raw/
-data/processed/
-models/*.joblib
-models/*.pkl
+data/processed/*
+!data/processed/features.parquet
+
+# Model artifacts: ignore everything except the trained pipelines the app loads
+models/*
+!models/*.joblib
 reports/*.png
 
 # IDE / OS
