@@ -262,3 +262,19 @@ CLASSIFICATION_SCORING: dict[str, object] = {
     "macro_f1":      "f1_macro",
     "severe_recall": severe_recall_scorer,
 }
+
+# ----- Predictor: saved model filenames + advisory text (Session 8) -----
+REG_MODEL_FILE: str = "ridge_regressor.joblib"
+CLF_MODEL_FILE: str = "lgbm_classifier.joblib"      # all-rounder; LogReg is the safety-first alt
+CLF_SAFETY_FILE: str = "logreg_classifier.joblib"
+
+# Health advisory per AQI category — one message per band in AQI_CATEGORIES.
+ADVISORY: dict[str, str] = {
+    "Good":         "Air is clean. Enjoy outdoor activities freely.",
+    "Satisfactory": "Air is acceptable. Very sensitive people may feel minor discomfort.",
+    "Moderate":     "May cause breathing discomfort to people with lung or heart conditions, children, and older adults.",
+    "Poor":         "Breathing discomfort to most on prolonged exposure. Limit long outdoor exertion.",
+    "Very Poor":    "Respiratory illness likely on prolonged exposure. Avoid outdoor activity; sensitive groups stay indoors.",
+    "Severe":       "Serious health effects for everyone. Avoid all outdoor activity and keep windows closed.",
+}
+assert set(ADVISORY) == set(AQI_CATEGORIES), "ADVISORY must cover every AQI category"
