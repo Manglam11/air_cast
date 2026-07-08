@@ -22,3 +22,6 @@ reports/*.png
 # Secrets
 .env
 *.secret
+
+#testing file
+notebooks/playground.ipynb
