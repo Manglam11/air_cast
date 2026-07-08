@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
 
 from src import config
 from src.models.predictor import Predictor
@@ -29,6 +30,8 @@ CATEGORY_COLORS: dict[str, str] = {
     "Very Poor":    "#e53935",
     "Severe":       "#b71c1c",
 }
+# How many days of real history to show behind the forecast point.
+HISTORY_DAYS: int = 30
 
 @st.cache_resource
 def load_predictor() -> Predictor:
@@ -65,6 +68,53 @@ def render_forecast(result: dict) -> None:
     )
     st.write(result["advisory"])
 
+def render_history_chart(
+    predictor: Predictor, city_id: str, base_date, result: dict
+) -> None:
+    """Plot recent actual AQI for a city with the forecast point appended.
+
+    Shows the ``HISTORY_DAYS`` days of measured AQI ending on ``base_date``,
+    then marks the next-day forecast so it can be read against recent history.
+
+    Args:
+        predictor: Loaded Predictor holding the feature table.
+        city_id: Canonical "city, state" identity.
+        base_date: The day the forecast is made from (history ends here).
+        result: Output of ``Predictor.predict`` (supplies the forecast point).
+    """
+    base_date = pd.Timestamp(base_date)
+    window_start = base_date - pd.Timedelta(days=HISTORY_DAYS)
+    feats = predictor.features
+    mask = (
+        (feats[config.CITY_ID_COL] == city_id)
+        & (feats[config.DATE_COL] > window_start)
+        & (feats[config.DATE_COL] <= base_date)
+    )
+    history = feats.loc[mask, [config.DATE_COL, config.AQI_COL]].sort_values(
+        config.DATE_COL
+    )
+
+    forecast_date = pd.Timestamp(result["forecast_date"])
+    color = CATEGORY_COLORS[result["category"]]
+
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    ax.plot(
+        history[config.DATE_COL], history[config.AQI_COL],
+        marker="o", markersize=3, linewidth=1.5, color="#5c6bc0", label="Actual AQI",
+    )
+    ax.scatter(
+        forecast_date, result["aqi"],
+        color=color, s=90, zorder=5, edgecolor="white", label="Forecast",
+    )
+    ax.set_title(f"{city_id} — last {HISTORY_DAYS} days")
+    ax.set_ylabel("AQI")
+    ax.legend(loc="upper right", frameon=False)
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
 def main() -> None:
     """Render the AirCast app: sidebar selectors + a placeholder body for now."""
     st.set_page_config(
@@ -88,6 +138,7 @@ def main() -> None:
 
     result = predictor.predict(city_id, selected_date)
     render_forecast(result)
+    render_history_chart(predictor, city_id, selected_date, result)
 
 
 if __name__ == "__main__":
